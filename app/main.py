@@ -103,10 +103,20 @@ routes = {
 # --- app ---------------------------------------------------------------------
 app = FastAPI(title="route-verdict", version="1.0.0")
 
+# Build the payment middleware ONCE. Constructing it runs the SDK's
+# initialize(), which synchronously fetches the facilitator's /supported
+# document over the network — building it per request (as this module did
+# originally) added a full external round-trip, on the event loop, to
+# EVERY request including /health and the unpaid 402 challenge. That was
+# the fleet's latency-variance problem (2026-10-24): Settled's latency
+# component whipsawed on services that hadn't changed. (Same fix as
+# token-verdict ff05d1c and stall-row 59e14b3.)
+_payment_middleware = fastapi_payment_middleware(routes, resource_server)
+
 
 @app.middleware("http")
 async def x402_middleware(request: Request, call_next):
-    return await fastapi_payment_middleware(routes, resource_server)(request, call_next)
+    return await _payment_middleware(request, call_next)
 
 
 class CheckRequest(BaseModel):

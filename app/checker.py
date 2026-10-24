@@ -29,6 +29,33 @@ from .store import CheckStore
 USER_AGENT = "route-verdict/1.0 (x402 trust probe)"
 
 
+_shared: httpx.AsyncClient | None = None
+
+
+def _shared_client() -> httpx.AsyncClient:
+    """One process-wide client for the probe and both catalog lookups.
+    Building a fresh AsyncClient per check (the original shape) threw
+    away the connection pool every call, so each check paid new
+    DNS + TCP + TLS handshakes to the target AND to the CDP and PayAI
+    hosts. The shared client keeps connections alive between checks.
+    Timeouts are unchanged: _probe passes its explicit per-request
+    timeout on every call, and the catalog lookups still fall back to
+    the httpx client default (5 s), exactly as on the per-request
+    client. Callers must NOT close it. (Same fix as token-verdict's
+    shared DEXScreener client, ff05d1c.)"""
+    global _shared
+    if _shared is None or _shared.is_closed:
+        _shared = httpx.AsyncClient(
+            follow_redirects=True,
+            limits=httpx.Limits(
+                max_connections=20,
+                max_keepalive_connections=10,
+                keepalive_expiry=90.0,
+            ),
+        )
+    return _shared
+
+
 def _reason(name: str, deduction: int, detail: str) -> dict:
     return {"name": name, "deduction": deduction, "detail": detail}
 
@@ -140,147 +167,146 @@ async def run_check(
         raise ValueError("resource_url must be an http(s) URL")
 
     checked_at = now or datetime.now(timezone.utc).isoformat()
-    own_client = client is None
-    http = client or httpx.AsyncClient(follow_redirects=True)
-    try:
-        probe = await _probe(http, resource_url, check_timeout)
-        parsed_challenge = parse_challenge(probe["status"] or 0, probe["headers"], probe["body"])
-        primary = parsed_challenge.primary_accept() if parsed_challenge.valid else None
+    # Default to the shared process-wide client; a caller-injected
+    # client (tests) is used as-is. Either way the client outlives this
+    # call — the old per-request client was closed in a finally block,
+    # which is precisely the pool-churn this fix removes.
+    http = client if client is not None else _shared_client()
+    probe = await _probe(http, resource_url, check_timeout)
+    parsed_challenge = parse_challenge(probe["status"] or 0, probe["headers"], probe["body"])
+    primary = parsed_challenge.primary_accept() if parsed_challenge.valid else None
 
-        terms = {
-            "found": bool(primary),
-            "price_usdc": format_price(
-                primary.amount if primary else None,
-                primary.network if primary else None,
-                primary.asset if primary else None,
-            ),
-            "amount_units": primary.amount if primary else None,
-            "network": primary.network if primary else None,
-            "asset": primary.asset if primary else None,
-            "pay_to": primary.pay_to if primary else None,
-            "scheme": primary.scheme if primary else None,
-            "x402_version": parsed_challenge.x402_version,
-        }
+    terms = {
+        "found": bool(primary),
+        "price_usdc": format_price(
+            primary.amount if primary else None,
+            primary.network if primary else None,
+            primary.asset if primary else None,
+        ),
+        "amount_units": primary.amount if primary else None,
+        "network": primary.network if primary else None,
+        "asset": primary.asset if primary else None,
+        "pay_to": primary.pay_to if primary else None,
+        "scheme": primary.scheme if primary else None,
+        "x402_version": parsed_challenge.x402_version,
+    }
 
-        schema_quality = evaluate_schema_quality(
-            parsed_challenge.bazaar, parsed_challenge.resource_description
+    schema_quality = evaluate_schema_quality(
+        parsed_challenge.bazaar, parsed_challenge.resource_description
+    )
+
+    cdp = await cdp_bazaar_presence(http, terms["pay_to"], resource_url)
+    payai = await payai_presence(http, resource_url)
+
+    reasons: list[dict] = []
+    score = 100
+
+    def deduct(name: str, points: int, detail: str) -> None:
+        nonlocal score
+        reasons.append(_reason(name, points, detail))
+        score -= points
+
+    if not probe["alive"]:
+        deduct(
+            "endpoint unreachable",
+            100,
+            f"No HTTP response at all — probe failed: {probe['error']}.",
         )
-
-        cdp = await cdp_bazaar_presence(http, terms["pay_to"], resource_url)
-        payai = await payai_presence(http, resource_url)
-
-        reasons: list[dict] = []
-        score = 100
-
-        def deduct(name: str, points: int, detail: str) -> None:
-            nonlocal score
-            reasons.append(_reason(name, points, detail))
-            score -= points
-
-        if not probe["alive"]:
-            deduct(
-                "endpoint unreachable",
-                100,
-                f"No HTTP response at all — probe failed: {probe['error']}.",
-            )
-        elif not parsed_challenge.valid or not primary:
-            deduct(
-                "no valid x402 challenge",
-                45,
-                parsed_challenge.error or "The response is not a parseable x402 payment challenge.",
-            )
-        else:
-            if not schema_quality["extension_present"]:
-                deduct(
-                    "no Bazaar discovery extension",
-                    15,
-                    "The 402 challenge carries no extensions.bazaar — agents get no typed contract from this route.",
-                )
-            elif schema_quality["hollow"]:
-                deduct(
-                    "hollow discovery schema",
-                    20,
-                    "The extension's output is example-only ({type, example}) with no typed schema — the shape 87.8% of listings ship.",
-                )
-            elif schema_quality["score"] is not None and schema_quality["score"] < 100:
-                deduct(
-                    "partial schema quality",
-                    round((100 - schema_quality["score"]) / 4),
-                    "Schema-quality sub-score "
-                    f"{schema_quality['score']}/100: "
-                    + "; ".join(d["name"] for d in schema_quality["deductions"]),
-                )
-            if primary.pay_to is None:
-                deduct("no payTo in challenge", 15, "The accepts entry names no payTo wallet — money cannot be routed to the seller.")
-            if primary.asset is None:
-                deduct("no asset in challenge", 5, "The accepts entry names no asset contract.")
-            if primary.network is None:
-                deduct("no network in challenge", 5, "The accepts entry names no network.")
-            if cdp["status"] == "not_listed":
-                deduct(
-                    "not listed in CDP Bazaar",
-                    10,
-                    cdp["detail"],
-                )
-            elif cdp["status"] == "unknown":
-                reasons.append(_reason("CDP Bazaar presence unknown", 0, cdp["detail"]))
-            if payai["status"] == "not_listed":
-                deduct(
-                    "not listed in PayAI index",
-                    5,
-                    payai["detail"],
-                )
-            elif payai["status"] == "unknown":
-                reasons.append(_reason("PayAI presence unknown", 0, payai["detail"]))
-            if probe["latency_ms"] is not None and probe["latency_ms"] > 5000:
-                deduct("slow response", 5, f"Probe took {probe['latency_ms']} ms — buyers time out.")
-
-        result = {
-            "resource_url": resource_url,
-            "checked_at": checked_at,
-            "verdict": "CAUTION",
-            "score": 0.0,
-            "reasons": reasons,
-            "liveness": {
-                "alive": probe["alive"],
-                "http_status": probe["status"],
-                "latency_ms": probe["latency_ms"],
-                "method": probe["method"] if probe["alive"] else None,
-                "x402_valid": parsed_challenge.valid,
-                "parse_error": parsed_challenge.error,
-            },
-            "terms": terms,
-            "schema_quality": schema_quality,
-            "catalog": {"cdp_bazaar": cdp, "payai": payai},
-            "diff": {},
-        }
-
-        result["diff"] = compute_diff(store.latest(resource_url), result)
-
-        # Prior-driven penalties: the diff is also a finding.
-        if result["diff"]["prior_check"]:
-            fields = {c["field"]: c for c in result["diff"]["changes"]}
-            if "pay_to" in fields:
-                deduct(
-                    "payTo changed since last check",
-                    15,
-                    f"The money now goes to a different wallet: {fields['pay_to']['before']} -> {fields['pay_to']['after']}.",
-                )
-            elif "price" in fields or "asset" in fields:
-                deduct(
-                    "price changed since last check",
-                    5,
-                    f"{fields.get('price', fields.get('asset'))['before']} -> "
-                    f"{fields.get('price', fields.get('asset'))['after']}.",
-                )
-
-        score = max(0, score)
-        result["score"] = float(score)
-        result["verdict"] = (
-            "TRUSTED" if score >= 75 else ("CAUTION" if score >= 45 else "AVOID")
+    elif not parsed_challenge.valid or not primary:
+        deduct(
+            "no valid x402 challenge",
+            45,
+            parsed_challenge.error or "The response is not a parseable x402 payment challenge.",
         )
-        store.save(result)
-        return result
-    finally:
-        if own_client:
-            await http.aclose()
+    else:
+        if not schema_quality["extension_present"]:
+            deduct(
+                "no Bazaar discovery extension",
+                15,
+                "The 402 challenge carries no extensions.bazaar — agents get no typed contract from this route.",
+            )
+        elif schema_quality["hollow"]:
+            deduct(
+                "hollow discovery schema",
+                20,
+                "The extension's output is example-only ({type, example}) with no typed schema — the shape 87.8% of listings ship.",
+            )
+        elif schema_quality["score"] is not None and schema_quality["score"] < 100:
+            deduct(
+                "partial schema quality",
+                round((100 - schema_quality["score"]) / 4),
+                "Schema-quality sub-score "
+                f"{schema_quality['score']}/100: "
+                + "; ".join(d["name"] for d in schema_quality["deductions"]),
+            )
+        if primary.pay_to is None:
+            deduct("no payTo in challenge", 15, "The accepts entry names no payTo wallet — money cannot be routed to the seller.")
+        if primary.asset is None:
+            deduct("no asset in challenge", 5, "The accepts entry names no asset contract.")
+        if primary.network is None:
+            deduct("no network in challenge", 5, "The accepts entry names no network.")
+        if cdp["status"] == "not_listed":
+            deduct(
+                "not listed in CDP Bazaar",
+                10,
+                cdp["detail"],
+            )
+        elif cdp["status"] == "unknown":
+            reasons.append(_reason("CDP Bazaar presence unknown", 0, cdp["detail"]))
+        if payai["status"] == "not_listed":
+            deduct(
+                "not listed in PayAI index",
+                5,
+                payai["detail"],
+            )
+        elif payai["status"] == "unknown":
+            reasons.append(_reason("PayAI presence unknown", 0, payai["detail"]))
+        if probe["latency_ms"] is not None and probe["latency_ms"] > 5000:
+            deduct("slow response", 5, f"Probe took {probe['latency_ms']} ms — buyers time out.")
+
+    result = {
+        "resource_url": resource_url,
+        "checked_at": checked_at,
+        "verdict": "CAUTION",
+        "score": 0.0,
+        "reasons": reasons,
+        "liveness": {
+            "alive": probe["alive"],
+            "http_status": probe["status"],
+            "latency_ms": probe["latency_ms"],
+            "method": probe["method"] if probe["alive"] else None,
+            "x402_valid": parsed_challenge.valid,
+            "parse_error": parsed_challenge.error,
+        },
+        "terms": terms,
+        "schema_quality": schema_quality,
+        "catalog": {"cdp_bazaar": cdp, "payai": payai},
+        "diff": {},
+    }
+
+    result["diff"] = compute_diff(store.latest(resource_url), result)
+
+    # Prior-driven penalties: the diff is also a finding.
+    if result["diff"]["prior_check"]:
+        fields = {c["field"]: c for c in result["diff"]["changes"]}
+        if "pay_to" in fields:
+            deduct(
+                "payTo changed since last check",
+                15,
+                f"The money now goes to a different wallet: {fields['pay_to']['before']} -> {fields['pay_to']['after']}.",
+            )
+        elif "price" in fields or "asset" in fields:
+            deduct(
+                "price changed since last check",
+                5,
+                f"{fields.get('price', fields.get('asset'))['before']} -> "
+                f"{fields.get('price', fields.get('asset'))['after']}.",
+            )
+
+    score = max(0, score)
+    result["score"] = float(score)
+    result["verdict"] = (
+        "TRUSTED" if score >= 75 else ("CAUTION" if score >= 45 else "AVOID")
+    )
+    store.save(result)
+    return result
