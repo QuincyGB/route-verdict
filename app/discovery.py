@@ -19,6 +19,17 @@ from .config import Settings
 # challenge exactly or directory validators reject the mismatch.
 USDC_ASSET = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
 
+# x402scan ownership proof: an EIP-191 personal_sign of this service's bare
+# origin URL ("https://route-verdict-production.up.railway.app") by the payTo
+# wallet, signed by the owner on 2026-10-24. Published in the manifest below
+# and in the OpenAPI x-discovery / x-agentcash-provenance root keys (see
+# main.py) so x402scan can verify control of the payment address. This is
+# publish-and-verify: the proofs must stay published permanently — removing
+# them un-verifies the x402scan listing. DO NOT REMOVE.
+OWNERSHIP_PROOFS = [
+    "0x8c2ed7029c8144956320b45dc4deb1ad0eccbd23cb7ee02ce0851b8ebea592386af46d9687b85f62424f96374763d3419b48a3107f0a54f4c70c36ba19ba518c1c"
+]
+
 
 def _price_to_units(price_usdc: str) -> str:
     """'$0.05' -> '50000' (USDC smallest units, 6 decimals)."""
@@ -305,6 +316,7 @@ def x402_manifest(settings: Settings, base_url: str) -> dict:
         ),
         "network": settings.network,
         "payTo": settings.pay_to,
+        "ownershipProofs": OWNERSHIP_PROOFS,
         "resources": [
             {
                 "resource": f"{base_url}/v1/check",
