@@ -137,6 +137,21 @@ async def x402_middleware(request: Request, call_next):
     return await _payment_middleware(request, call_next)
 
 
+# Request-body cap (security audit 2026-10-25): every legitimate body in
+# this API is a small JSON document; an uncapped body lets a caller
+# stream unbounded bytes at the parser. Chunked bodies without a
+# Content-Length are the residual gap (terminated at the edge).
+_MAX_BODY_BYTES = 1024 * 1024
+
+
+@app.middleware("http")
+async def _body_cap(request: Request, call_next):
+    length = request.headers.get("content-length")
+    if length is not None and length.isdigit() and int(length) > _MAX_BODY_BYTES:
+        return JSONResponse({"error": "request body too large"}, status_code=413)
+    return await call_next(request)
+
+
 class CheckRequest(BaseModel):
     resource_url: str = Field(description="Full URL of the x402 resource to audit")
 
