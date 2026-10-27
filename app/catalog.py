@@ -92,7 +92,7 @@ async def cdp_bazaar_presence(
         "unique_payers_30d": None,
         "total_calls_30d": None,
         "last_called_at": None,
-        "detail": f"payTo wallet has {total if total is not None else len(resources)} CDP Bazaar resource(s); this URL is not among them.",
+        "detail": f"payTo wallet has {total if total is not None else len(resources)} CDP Bazaar resources; this URL is not among them.",
     }
 
 
@@ -108,7 +108,7 @@ async def payai_presence(client: httpx.AsyncClient, resource_url: str) -> dict:
             "unique_payers_30d": None,
             "total_calls_30d": None,
             "last_called_at": None,
-            "detail": "PayAI reports no catalog row for this resource (it catalogs only settlements through its own facilitator).",
+            "detail": "PayAI reports no catalog row for this resource (it catalogs only its own facilitator's settlements).",
         }
     if resp.status_code != 200:
         return _unknown(f"PayAI listing-status returned HTTP {resp.status_code}.")

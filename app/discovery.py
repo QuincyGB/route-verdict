@@ -180,12 +180,12 @@ CHECK_OUTPUT_EXAMPLE = {
         {
             "name": "not listed in CDP Bazaar",
             "deduction": 10,
-            "detail": "payTo wallet has 0 CDP Bazaar resource(s); this URL is not among them.",
+            "detail": "payTo wallet has 0 CDP Bazaar resources; this URL is not among them.",
         },
         {
             "name": "not listed in PayAI index",
             "deduction": 5,
-            "detail": "PayAI reports no catalog row for this resource (it catalogs only settlements through its own facilitator).",
+            "detail": "PayAI reports no catalog row for this resource (it catalogs only its own facilitator's settlements).",
         },
     ],
     "liveness": {
@@ -218,7 +218,7 @@ CHECK_OUTPUT_EXAMPLE = {
             "unique_payers_30d": None,
             "total_calls_30d": None,
             "last_called_at": None,
-            "detail": "payTo wallet has 0 CDP Bazaar resource(s); this URL is not among them.",
+            "detail": "payTo wallet has 0 CDP Bazaar resources; this URL is not among them.",
         },
         "payai": {
             "status": "not_listed",

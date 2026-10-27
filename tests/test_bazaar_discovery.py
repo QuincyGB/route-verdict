@@ -165,6 +165,18 @@ def test_example_validates_against_output_schema():
     jsonschema.validate(instance=CHECK_OUTPUT_EXAMPLE, schema=CHECK_OUTPUT_SCHEMA)
 
 
+def test_example_under_settled_sample_limit():
+    """Settled's extractor silently drops published output samples over
+    ~1.5 KB serialized (measured 2026-10-25: this route's 1,453 B sample
+    was kept and graded as_advertised; Token Verdict's 1,721 B sample was
+    dropped -> nothing_to_compare). The fleet pin is <=1,450 B; the
+    2026-10-27 trim shortened two catalog detail strings (generator +
+    example together) to get back under it."""
+    import json
+
+    assert len(json.dumps(CHECK_OUTPUT_EXAMPLE).encode()) <= 1450
+
+
 # --- discovery surfaces stay consistent ---------------------------------------
 
 @pytest.fixture(scope="module")
