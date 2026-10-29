@@ -112,3 +112,46 @@ def test_long_description_deducts():
 def test_missing_description_deducts():
     q = evaluate_schema_quality(FULL_EXT, None)
     assert any(d["name"] == "no resource description" for d in q["deductions"])
+
+
+def test_schema_contract_captures_field_types():
+    from app.schema_quality import schema_contract
+
+    contract = schema_contract(FULL_EXT)
+    assert contract == {
+        "output": {"$": "object", "$.score": "number", "$.verdict": "string"}
+    }
+
+
+def test_schema_contract_distinguishes_type_flip_at_equal_quality():
+    from app.schema_quality import schema_contract
+
+    flipped = {
+        "info": {
+            "input": FULL_EXT["info"]["input"],
+            "output": {
+                "type": "json",
+                "example": {"verdict": "OK", "score": 12},
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "verdict": {"type": "string"},
+                        "score": {"type": "string"},
+                    },
+                },
+            },
+        }
+    }
+    # Both extensions score 100 — quality is unchanged — but the
+    # contracts differ, which is the distinction the diff relies on.
+    assert evaluate_schema_quality(FULL_EXT, "desc")["score"] == 100
+    assert evaluate_schema_quality(flipped, "desc")["score"] == 100
+    assert schema_contract(FULL_EXT) != schema_contract(flipped)
+    assert schema_contract(flipped)["output"]["$.score"] == "string"
+
+
+def test_schema_contract_none_without_typed_schema():
+    from app.schema_quality import schema_contract
+
+    assert schema_contract(None) is None
+    assert schema_contract({"info": {"output": {"type": "json", "example": {}}}}) is None

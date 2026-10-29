@@ -26,7 +26,7 @@ import httpx
 
 from .catalog import cdp_bazaar_presence, payai_presence
 from .parsers import format_price, parse_challenge
-from .schema_quality import evaluate_schema_quality
+from .schema_quality import evaluate_schema_quality, schema_contract
 from .store import CheckStore
 
 USER_AGENT = "route-verdict/1.0 (x402 trust probe)"
@@ -177,13 +177,84 @@ def _comparables(result: dict) -> dict[str, str]:
     }
 
 
+_MAX_CONTRACT_CHANGES = 25
+
+
+def _contract_of(result: dict) -> dict | None:
+    contract = (result.get("schema_quality") or {}).get("contract")
+    return contract if isinstance(contract, dict) else None
+
+
+def _contract_change_entries(
+    before_contract: dict, after_contract: dict, score_before: str, score_after: str
+) -> tuple[list[dict], int]:
+    """Per-field contract changes between two stored contract maps.
+
+    Returns (entries, overflow) — at most _MAX_CONTRACT_CHANGES entries
+    are spelled out; the rest are counted so the summary stays honest.
+    """
+    entries: list[dict] = []
+    overflow = 0
+    for section in sorted(set(before_contract) | set(after_contract)):
+        before_fields = before_contract.get(section) or {}
+        after_fields = after_contract.get(section) or {}
+        for path in sorted(set(before_fields) | set(after_fields)):
+            before_sig, after_sig = before_fields.get(path), after_fields.get(path)
+            if before_sig == after_sig:
+                continue
+            if len(entries) >= _MAX_CONTRACT_CHANGES:
+                overflow += 1
+                continue
+            if before_sig is None:
+                detail = (
+                    f"{section} schema field '{path}' was added with type "
+                    f"{after_sig} — the published contract changed."
+                )
+            elif after_sig is None:
+                detail = (
+                    f"{section} schema field '{path}' was removed (was "
+                    f"{before_sig}) — the published contract changed."
+                )
+            else:
+                detail = (
+                    f"{section} schema field '{path}' changed type: "
+                    f"{before_sig} -> {after_sig} — the published contract "
+                    f"changed. The schema-quality score grades how well a "
+                    f"schema is written, not what it promises, so it does "
+                    f"not move for this ({score_before} -> {score_after})."
+                )
+            entries.append(
+                {
+                    "field": f"{section}_schema",
+                    "kind": "contract_change",
+                    "path": path,
+                    "before": before_sig,
+                    "after": after_sig,
+                    "detail": detail,
+                }
+            )
+    return entries, overflow
+
+
 def compute_diff(prior: dict | None, current: dict) -> dict:
-    """What changed about this resource since its previous check."""
+    """What changed about this resource since its previous check.
+
+    Two stability axes are reported separately, because they are
+    different promises: "schema_score_stability" tracks the quality
+    GRADE of the published schema, while "contract_stability" tracks
+    the schema's field -> type identity. A field flipping string ->
+    number leaves both grades at 100 yet changes the contract; that
+    shows up here as a contract change, never as a silent no-change.
+    Contract stability is "unknown" when either check predates
+    contract capture (results stored before it shipped).
+    """
     if prior is None:
         return {
             "prior_check": False,
             "prior_checked_at": None,
             "changes": [],
+            "schema_score_stability": "unknown",
+            "contract_stability": "unknown",
             "summary": "no prior check on record",
         }
     before, after = _comparables(prior), _comparables(current)
@@ -198,19 +269,56 @@ def compute_diff(prior: dict | None, current: dict) -> dict:
                     "detail": f"{field} changed: {before[field]} -> {after[field]}.",
                 }
             )
+    score_stability = (
+        "unknown"
+        if before["schema_score"] == after["schema_score"] == "unknown"
+        else ("stable" if before["schema_score"] == after["schema_score"] else "changed")
+    )
+    before_contract, after_contract = _contract_of(prior), _contract_of(current)
+    if before_contract is None or after_contract is None:
+        contract_stability = "unknown"
+    elif before_contract == after_contract:
+        contract_stability = "stable"
+    else:
+        contract_stability = "changed"
+        entries, overflow = _contract_change_entries(
+            before_contract, after_contract, before["schema_score"], after["schema_score"]
+        )
+        changes.extend(entries)
+        if overflow:
+            changes.append(
+                {
+                    "field": "output_schema",
+                    "kind": "contract_change_overflow",
+                    "path": None,
+                    "before": None,
+                    "after": None,
+                    "detail": f"plus {overflow} further contract change(s) not spelled out.",
+                }
+            )
     prior_at = prior.get("checked_at")
     if not changes:
         return {
             "prior_check": True,
             "prior_checked_at": prior_at,
             "changes": [],
+            "schema_score_stability": score_stability,
+            "contract_stability": contract_stability,
             "summary": f"no changes since {prior_at}",
         }
-    summary = "; ".join(f"{c['field']}: {c['before']} -> {c['after']}" for c in changes)
+
+    def _label(c: dict) -> str:
+        if c.get("kind", "").startswith("contract_change"):
+            return f"{c['field']} {c['path']}: {c['before']} -> {c['after']}"
+        return f"{c['field']}: {c['before']} -> {c['after']}"
+
+    summary = "; ".join(_label(c) for c in changes)
     return {
         "prior_check": True,
         "prior_checked_at": prior_at,
         "changes": changes,
+        "schema_score_stability": score_stability,
+        "contract_stability": contract_stability,
         "summary": f"{len(changes)} change(s) since {prior_at}: {summary}",
     }
 
@@ -300,6 +408,11 @@ async def run_check(
     schema_quality = evaluate_schema_quality(
         parsed_challenge.bazaar, parsed_challenge.resource_description
     )
+    # The score grades schema QUALITY; this map is the schema's
+    # IDENTITY. Stored beside the score so compute_diff can report a
+    # contract change (e.g. an output field flipping string -> number)
+    # even when the score does not move.
+    schema_quality["contract"] = schema_contract(parsed_challenge.bazaar)
 
     cdp = await cdp_bazaar_presence(http, terms["pay_to"], resource_url)
     payai = await payai_presence(http, resource_url)

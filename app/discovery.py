@@ -379,7 +379,10 @@ paying it, parses its 402 challenge, and never sends it money. Returns:
 - `catalog` — is the resource listed in the CDP Bazaar / PayAI index?
   (`unknown` means the lookup failed — never a fabricated "not listed")
 - `diff` — what changed since the previous check of the same URL (price,
-  payTo, schema score, listing presence, liveness); a first check says
+  payTo, schema score, listing presence, liveness); schema-score
+  stability and contract stability are reported as separate axes — an
+  output field changing type (string -> number) is a contract change
+  even when the schema-quality score does not move; a first check says
   "no prior check on record"
 
 ## Free endpoints

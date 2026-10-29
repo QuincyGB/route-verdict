@@ -11,6 +11,8 @@ facilitator enforces (longer descriptions make CDP reject payments).
 
 from __future__ import annotations
 
+import json
+
 
 def _schema_types_real_fields(schema: object, depth: int = 0) -> bool:
     """True when a JSON Schema actually pins down fields: typed
@@ -123,3 +125,61 @@ def evaluate_schema_quality(bazaar: dict | None, description: str | None) -> dic
         "score": max(0, score),
         "deductions": deductions,
     }
+
+
+def _type_signature(schema: dict) -> str:
+    """One field's contract identity: its declared type (or 'any'),
+    plus format and enum values when the schema pins them down."""
+    declared = schema.get("type")
+    if isinstance(declared, list):
+        sig = "|".join(sorted(str(t) for t in declared))
+    elif declared is not None:
+        sig = str(declared)
+    else:
+        sig = "any"
+    if "enum" in schema:
+        try:
+            sig += " enum=" + json.dumps(schema["enum"], sort_keys=True, default=str)
+        except (TypeError, ValueError):
+            sig += " enum=?"
+    fmt = schema.get("format")
+    if isinstance(fmt, str):
+        sig += f" format={fmt}"
+    return sig
+
+
+def _contract_fields(schema: object, prefix: str, out: dict, depth: int = 0) -> dict:
+    if not isinstance(schema, dict) or depth > 8:
+        return out
+    out[prefix] = _type_signature(schema)
+    required = schema.get("required")
+    if isinstance(required, list) and required:
+        out[prefix + " (required)"] = ",".join(sorted(str(r) for r in required))
+    props = schema.get("properties")
+    if isinstance(props, dict):
+        for name in sorted(props, key=str):
+            _contract_fields(props[name], f"{prefix}.{name}", out, depth + 1)
+    items = schema.get("items")
+    if isinstance(items, dict):
+        _contract_fields(items, f"{prefix}[]", out, depth + 1)
+    return out
+
+
+def schema_contract(bazaar: dict | None) -> dict | None:
+    """The extension's published contract as a canonical field -> type
+    map ({'output': {'$': 'object', '$.amount': 'string', ...}}).
+
+    The quality score above grades how WELL a schema is written; it is
+    not an identity. Two schemas can both score 100 while promising
+    different types (an output field flipping string -> number), so the
+    diff in checker.py compares this map separately and reports a
+    contract change even when the score does not move. Returns None
+    when the extension carries no typed output schema to fingerprint.
+    """
+    if not isinstance(bazaar, dict):
+        return None
+    info = bazaar.get("info") if isinstance(bazaar.get("info"), dict) else {}
+    output = info.get("output") if isinstance(info.get("output"), dict) else None
+    if output is None or not isinstance(output.get("schema"), dict):
+        return None
+    return {"output": _contract_fields(output["schema"], "$", {})}

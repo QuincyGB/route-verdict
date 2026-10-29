@@ -58,3 +58,59 @@ def test_multiple_changes_all_reported():
 def test_liveness_flip_is_a_change():
     d = compute_diff(_result(), _result(liveness={"alive": False}))
     assert {c["field"] for c in d["changes"]} == {"liveness"}
+
+
+def _with_contract(score, output_fields):
+    return _result(
+        schema_quality={"score": score, "contract": {"output": output_fields}}
+    )
+
+
+_CONTRACT_V1 = {"$": "object", "$ (required)": "amount,unit", "$.amount": "string", "$.unit": "string"}
+_CONTRACT_V2 = {"$": "object", "$ (required)": "amount,unit", "$.amount": "number", "$.unit": "string"}
+
+
+def test_field_type_flip_is_contract_change_with_stable_score():
+    # The aicom case (2026-10-29): an output field flips string ->
+    # number; both schema scores stay 100. The diff must report a
+    # contract change, not "no changes".
+    d = compute_diff(_with_contract(100, _CONTRACT_V1), _with_contract(100, _CONTRACT_V2))
+    assert d["contract_stability"] == "changed"
+    assert d["schema_score_stability"] == "stable"
+    contract_changes = [c for c in d["changes"] if c.get("kind") == "contract_change"]
+    assert len(contract_changes) == 1
+    entry = contract_changes[0]
+    assert entry["path"] == "$.amount"
+    assert entry["before"] == "string"
+    assert entry["after"] == "number"
+    assert "no changes" not in d["summary"]
+
+
+def test_identical_contract_is_stable():
+    d = compute_diff(_with_contract(100, _CONTRACT_V1), _with_contract(100, dict(_CONTRACT_V1)))
+    assert d["contract_stability"] == "stable"
+    assert d["changes"] == []
+    assert d["summary"].startswith("no changes since")
+
+
+def test_legacy_results_without_contract_report_unknown():
+    d = compute_diff(_result(), _with_contract(100, _CONTRACT_V1))
+    assert d["contract_stability"] == "unknown"
+    assert [c for c in d["changes"] if c.get("kind") == "contract_change"] == []
+
+
+def test_contract_field_added_and_removed():
+    before = {"$": "object", "$.a": "string", "$.gone": "number"}
+    after = {"$": "object", "$.a": "string", "$.new": "boolean"}
+    d = compute_diff(_with_contract(100, before), _with_contract(100, after))
+    assert d["contract_stability"] == "changed"
+    kinds = {(c["path"], c["before"], c["after"]) for c in d["changes"]}
+    assert ("$.gone", "number", None) in kinds
+    assert ("$.new", None, "boolean") in kinds
+
+
+def test_score_change_without_contract_change():
+    d = compute_diff(_with_contract(90, _CONTRACT_V1), _with_contract(100, _CONTRACT_V1))
+    assert d["schema_score_stability"] == "changed"
+    assert d["contract_stability"] == "stable"
+    assert [c["field"] for c in d["changes"]] == ["schema_score"]
