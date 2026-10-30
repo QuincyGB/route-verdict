@@ -471,6 +471,7 @@ paying it, parses its 402 challenge, and never sends it money. Returns:
   beside the legacy prose `changes[]`
 - `GET {base_url}/.well-known/x402` — machine-readable manifest
 - `GET {base_url}/.well-known/agent-card.json` — A2A agent card (skills mirror the priced routes)
+- `GET {base_url}/.well-known/stability-manifest.json` — signed pinned-route stability manifest (prices + schema fingerprints, pinned under an agent-wallet signature)
 
 ## Honest limits
 
@@ -494,4 +495,5 @@ Paid API: trust & liveness checks for x402 endpoints. Price: {settings.price_usd
 - GET {base_url}/v1/history?resource_url=<url> — free; stored check history for one resource
 - GET {base_url}/.well-known/x402 — manifest
 - GET {base_url}/.well-known/agent-card.json — A2A agent card (skills mirror the priced routes)
+- GET {base_url}/.well-known/stability-manifest.json — signed pinned-route stability manifest (prices + schema fingerprints)
 """

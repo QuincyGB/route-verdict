@@ -1,0 +1,43 @@
+{
+  "base_url": "https://route-verdict-production.up.railway.app",
+  "change_policy": {
+    "price_freeze": [
+      {
+        "note": "Frozen at $0.05 while the inspector programme runs — a key buyer's auto-test ceiling sits exactly at this price; raising it requires a new manifest version AND a programme decision, in that order.",
+        "price_units": "50000",
+        "resource": "https://route-verdict-production.up.railway.app/v1/check"
+      }
+    ],
+    "statement": "Prices and output schemas recorded here change only under a new signed manifest version, published before or with the change taking effect; changes are also announced in the fleet's public change record as they land. A served route whose price or schema fingerprint disagrees with the latest signed manifest is a defect — report it to patrol@verdictrow.com."
+  },
+  "issued_at": "2026-10-30T20:57:52Z",
+  "manifest": "verdict-row-stability/v1",
+  "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+  "routes": [
+    {
+      "accepts": [
+        {
+          "amount": "50000",
+          "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "maxTimeoutSeconds": 300,
+          "network": "eip155:8453",
+          "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+          "scheme": "exact"
+        }
+      ],
+      "method": "POST",
+      "resource": "https://route-verdict-production.up.railway.app/v1/check",
+      "schema_fingerprint": "sha256:c5a147920898db6eda1f451a3471aa79f819a1912c113970ea188716c699ccba"
+    },
+    {
+      "accepts": null,
+      "method": "GET",
+      "resource": "https://route-verdict-production.up.railway.app/quote",
+      "schema_fingerprint": "sha256:06334c74179fe04003e14ffd129c8518b8c3380bfea5e3d1308f4f4888c8f6e2"
+    }
+  ],
+  "signature": "0x5450231f94fd7f727102f80ab3120e9a948283472dce1cf8abee7d58ff50a4ee11847643a3e3340a8386fa18e9125b15cbefc0fa85c6c3730be0e84840692c321b",
+  "signer": "0xa4f183a6799F0310FcCC545B07F2DcC960223de2",
+  "stall": "route-verdict",
+  "version": "2026-10-30.1"
+}
