@@ -236,6 +236,120 @@ def _contract_change_entries(
     return entries, overflow
 
 
+# --- structured field-level changes -------------------------------------
+# Alongside the legacy prose `changes[]`, every diff carries a
+# machine-readable `field_changes` array:
+#   {path, op, before, after, severity, category}
+# op ∈ added | removed | type_changed | value_changed |
+#      required_changed | enum_changed
+# category ∈ contract | schema | payment | listing
+# Legacy fields keep their exact meanings; this array is additive.
+
+_COMPARABLE_FIELD_CHANGES = {
+    # field -> (category, severity)
+    "liveness": ("listing", "high"),
+    "price": ("payment", "medium"),
+    "asset": ("payment", "medium"),
+    "pay_to": ("payment", "high"),
+    "network": ("payment", "medium"),
+    "schema_score": ("schema", "medium"),
+    "cdp_listing": ("listing", "low"),
+    "payai_listing": ("listing", "low"),
+}
+
+
+def _base_type(signature: str) -> str:
+    """The type word of a contract signature ('string enum=[a,b]' ->
+    'string'); signatures without qualifiers return themselves."""
+    return signature.split(" ", 1)[0] if signature else signature
+
+
+def _contract_field_changes(
+    before_contract: dict, after_contract: dict
+) -> list[dict]:
+    """Field-level entries from two stored field->type contract
+    maps. A field flipping string -> number at an unchanged quality
+    score produces a named type_changed entry here (Alex's case,
+    alexar76/aicom#13) — the score never has to move for the change
+    to be spelled out."""
+    out: list[dict] = []
+    for section in sorted(set(before_contract) | set(after_contract)):
+        before_fields = before_contract.get(section) or {}
+        after_fields = after_contract.get(section) or {}
+        for path in sorted(set(before_fields) | set(after_fields)):
+            before_sig, after_sig = before_fields.get(path), after_fields.get(path)
+            if before_sig == after_sig:
+                continue
+            full_path = f"{section}.{path}"
+            if path.endswith(" (required)"):
+                out.append(
+                    {
+                        "path": full_path[: -len(" (required)")],
+                        "op": "required_changed",
+                        "before": before_sig,
+                        "after": after_sig,
+                        "severity": "medium",
+                        "category": "contract",
+                    }
+                )
+            elif before_sig is None:
+                out.append(
+                    {
+                        "path": full_path,
+                        "op": "added",
+                        "before": None,
+                        "after": after_sig,
+                        "severity": "medium",
+                        "category": "contract",
+                    }
+                )
+            elif after_sig is None:
+                out.append(
+                    {
+                        "path": full_path,
+                        "op": "removed",
+                        "before": before_sig,
+                        "after": None,
+                        "severity": "high",
+                        "category": "contract",
+                    }
+                )
+            elif _base_type(before_sig) != _base_type(after_sig):
+                out.append(
+                    {
+                        "path": full_path,
+                        "op": "type_changed",
+                        "before": before_sig,
+                        "after": after_sig,
+                        "severity": "medium",
+                        "category": "contract",
+                    }
+                )
+            elif "enum" in before_sig or "enum" in after_sig:
+                out.append(
+                    {
+                        "path": full_path,
+                        "op": "enum_changed",
+                        "before": before_sig,
+                        "after": after_sig,
+                        "severity": "medium",
+                        "category": "contract",
+                    }
+                )
+            else:
+                out.append(
+                    {
+                        "path": full_path,
+                        "op": "value_changed",
+                        "before": before_sig,
+                        "after": after_sig,
+                        "severity": "low",
+                        "category": "contract",
+                    }
+                )
+    return out
+
+
 def compute_diff(prior: dict | None, current: dict) -> dict:
     """What changed about this resource since its previous check.
 
@@ -253,12 +367,14 @@ def compute_diff(prior: dict | None, current: dict) -> dict:
             "prior_check": False,
             "prior_checked_at": None,
             "changes": [],
+            "field_changes": [],
             "schema_score_stability": "unknown",
             "contract_stability": "unknown",
             "summary": "no prior check on record",
         }
     before, after = _comparables(prior), _comparables(current)
     changes = []
+    field_changes: list[dict] = []
     for field in before:
         if before[field] != after[field]:
             changes.append(
@@ -267,6 +383,19 @@ def compute_diff(prior: dict | None, current: dict) -> dict:
                     "before": before[field],
                     "after": after[field],
                     "detail": f"{field} changed: {before[field]} -> {after[field]}.",
+                }
+            )
+            category, severity = _COMPARABLE_FIELD_CHANGES.get(
+                field, ("schema", "low")
+            )
+            field_changes.append(
+                {
+                    "path": field,
+                    "op": "value_changed",
+                    "before": before[field],
+                    "after": after[field],
+                    "severity": severity,
+                    "category": category,
                 }
             )
     score_stability = (
@@ -280,6 +409,9 @@ def compute_diff(prior: dict | None, current: dict) -> dict:
     elif before_contract == after_contract:
         contract_stability = "stable"
     else:
+        field_changes.extend(
+            _contract_field_changes(before_contract, after_contract)
+        )
         contract_stability = "changed"
         entries, overflow = _contract_change_entries(
             before_contract, after_contract, before["schema_score"], after["schema_score"]
@@ -302,6 +434,7 @@ def compute_diff(prior: dict | None, current: dict) -> dict:
             "prior_check": True,
             "prior_checked_at": prior_at,
             "changes": [],
+            "field_changes": field_changes,
             "schema_score_stability": score_stability,
             "contract_stability": contract_stability,
             "summary": f"no changes since {prior_at}",
@@ -317,6 +450,7 @@ def compute_diff(prior: dict | None, current: dict) -> dict:
         "prior_check": True,
         "prior_checked_at": prior_at,
         "changes": changes,
+        "field_changes": field_changes,
         "schema_score_stability": score_stability,
         "contract_stability": contract_stability,
         "summary": f"{len(changes)} change(s) since {prior_at}: {summary}",

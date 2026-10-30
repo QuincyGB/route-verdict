@@ -114,3 +114,94 @@ def test_score_change_without_contract_change():
     assert d["schema_score_stability"] == "changed"
     assert d["contract_stability"] == "stable"
     assert [c["field"] for c in d["changes"]] == ["schema_score"]
+
+
+# --- field_changes (structured, additive to legacy changes[]) -------------
+
+
+def _with_contract_map(result, contract):
+    result["schema_quality"] = {
+        **result["schema_quality"],
+        "contract": contract,
+    }
+    return result
+
+
+def test_field_changes_empty_without_prior():
+    d = compute_diff(None, _result())
+    assert d["field_changes"] == []
+
+
+def test_field_changes_empty_when_identical():
+    d = compute_diff(_result(), _result())
+    assert d["field_changes"] == []
+
+
+def test_field_changes_name_payment_moves():
+    prior = _result()
+    current = _result(
+        terms={
+            "amount_units": "99000",
+            "pay_to": "0x2222222222222222222222222222222222222222",
+        }
+    )
+    d = compute_diff(prior, current)
+    by_path = {fc["path"]: fc for fc in d["field_changes"]}
+    assert by_path["price"]["op"] == "value_changed"
+    assert by_path["price"]["category"] == "payment"
+    assert by_path["price"]["before"] == "20000"
+    assert by_path["price"]["after"] == "99000"
+    assert by_path["pay_to"]["severity"] == "high"
+    # legacy shape untouched
+    assert {c["field"] for c in d["changes"]} == {"price", "pay_to"}
+
+
+def test_contract_type_flip_named_at_unchanged_score():
+    """Alex's case: an output field flips string -> number while the
+    schema-quality score stays 100 — field_changes must name it."""
+    contract_a = {"output": {"$": "object", "$.amount": "string"}}
+    contract_b = {"output": {"$": "object", "$.amount": "number"}}
+    prior = _with_contract_map(_result(), contract_a)
+    current = _with_contract_map(_result(), contract_b)
+    d = compute_diff(prior, current)
+    assert d["contract_stability"] == "changed"
+    assert d["schema_score_stability"] == "stable"
+    entries = [fc for fc in d["field_changes"] if fc["category"] == "contract"]
+    assert entries == [
+        {
+            "path": "output.$.amount",
+            "op": "type_changed",
+            "before": "string",
+            "after": "number",
+            "severity": "medium",
+            "category": "contract",
+        }
+    ]
+
+
+def test_contract_added_removed_required_and_enum_ops():
+    contract_a = {
+        "output": {
+            "$": "object",
+            "$ (required)": "amount",
+            "$.gone": "string",
+            "$.mode": 'string enum=["a"]',
+        }
+    }
+    contract_b = {
+        "output": {
+            "$": "object",
+            "$ (required)": "amount,mode",
+            "$.mode": 'string enum=["a","b"]',
+            "$.new": "boolean",
+        }
+    }
+    d = compute_diff(
+        _with_contract_map(_result(), contract_a),
+        _with_contract_map(_result(), contract_b),
+    )
+    ops = {(fc["path"], fc["op"]) for fc in d["field_changes"]}
+    assert ("output.$.new", "added") in ops
+    assert ("output.$.gone", "removed") in ops
+    assert ("output.$", "required_changed") in ops
+    assert ("output.$.mode", "enum_changed") in ops

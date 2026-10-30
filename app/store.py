@@ -90,6 +90,25 @@ class CheckStore:
             )
             self._conn.commit()
 
+    def history(self, resource_url: str, limit: int = 200) -> list[dict]:
+        """Every stored check for this URL, oldest first — the read
+        the fleet timeline aggregates (GET /v1/history). The checks
+        table already holds the full result JSON per check; this is
+        a pure read, it changes nothing."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT result_json FROM checks WHERE resource_url = ? "
+                "ORDER BY id ASC LIMIT ?",
+                (resource_url, max(1, min(int(limit), 1000))),
+            ).fetchall()
+        out = []
+        for (raw,) in rows:
+            try:
+                out.append(json.loads(raw))
+            except ValueError:
+                continue
+        return out
+
     def count(self, resource_url: str) -> int:
         with self._lock:
             row = self._conn.execute(

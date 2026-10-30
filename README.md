@@ -48,6 +48,7 @@ payout wallet.
 | `GET /skill.md` | free | Documentation written for agents |
 | `GET /llms.txt` | free | Compact agent index |
 | `GET /health` | free | Liveness |
+| `GET /v1/history?resource_url=…` | free | Every stored check for one resource, oldest first (the read StallRow's unified timeline aggregates) |
 
 Request body: `{"resource_url": "https://service.example.com/v1/endpoint"}`
 

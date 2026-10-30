@@ -489,6 +489,29 @@ async def nudge_inbox_read(
     }
 
 
+@app.get("/v1/history")
+async def history(resource_url: str):
+    """Free read: every stored check for one resource_url, oldest
+    first — the per-resource history the fleet's unified timeline
+    (StallRow GET /v1/resource/timeline) aggregates next to Recheck
+    events and catalogue state. Pure read over the same store the
+    paid check writes; absent from the x402 routes dict, so the
+    priced route count does not move. Checks stored before diff
+    field_changes shipped simply lack that key — history serves
+    what the store holds, never a reconstruction."""
+    resource_url = resource_url.strip()
+    if not resource_url:
+        return JSONResponse(
+            {"error": "resource_url is required"}, status_code=422
+        )
+    checks = get_store().history(resource_url)
+    return {
+        "resource_url": resource_url,
+        "count": len(checks),
+        "checks": checks,
+    }
+
+
 @app.post("/v1/check")
 async def check(req: CheckRequest):
     """Paid endpoint — unreachable until the x402 middleware verifies payment."""

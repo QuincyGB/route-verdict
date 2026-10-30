@@ -388,7 +388,11 @@ paying it, parses its 402 challenge, and never sends it money. Returns:
 ## Free endpoints
 
 - `GET {base_url}/quote` — price, network, payTo
-- `GET {base_url}/health` — liveness
+- `GET {base_url}/health` — liveness (includes check-store durability)
+- `GET {base_url}/v1/history?resource_url=<url>` — every stored check
+  for one resource, oldest first; each diff also carries a structured
+  `field_changes` array (path, op, before, after, severity, category)
+  beside the legacy prose `changes[]`
 - `GET {base_url}/.well-known/x402` — machine-readable manifest
 
 ## Honest limits
@@ -410,5 +414,6 @@ Paid API: trust & liveness checks for x402 endpoints. Price: {settings.price_usd
 - POST {base_url}/v1/check — paid. Body: {{"resource_url": str}}
 - GET {base_url}/quote — free price quote
 - GET {base_url}/health — free liveness check
+- GET {base_url}/v1/history?resource_url=<url> — free; stored check history for one resource
 - GET {base_url}/.well-known/x402 — manifest
 """
