@@ -1,7 +1,8 @@
 """RouteVerdict — x402 pay-per-call trust & liveness checks for x402 APIs.
 
 Paid:   POST /v1/check   (USDC via x402 v2 "exact" scheme on Base)
-Free:   GET  /, /health, /quote, /.well-known/x402, /skill.md, /llms.txt
+Free:   GET  /, /health, /quote, /.well-known/x402, /skill.md, /llms.txt,
+             /.well-known/agent-card.json
         POST /v1/nudge (signed fleet-health mail — see nudge.py)
         POST /v1/internal/nudges (owner read, fleet-internal secret)
 
@@ -43,7 +44,7 @@ from . import checker as checker_svc
 from . import nudge as nudge_svc
 from .checker import run_check
 from .config import load_settings
-from .discovery import OWNERSHIP_PROOFS, bazaar_extension, llms_txt, skill_md, x402_manifest
+from .discovery import OWNERSHIP_PROOFS, agent_card, bazaar_extension, llms_txt, skill_md, x402_manifest
 from .store import CheckStore
 
 log = logging.getLogger("route-verdict")
@@ -341,6 +342,11 @@ async def quote():
 @app.get("/.well-known/x402")
 async def well_known(request: Request):
     return JSONResponse(x402_manifest(settings, _public_base(request)))
+
+
+@app.get("/.well-known/agent-card.json")
+async def agent_card_document(request: Request):
+    return JSONResponse(agent_card(settings, _public_base(request)))
 
 
 @app.get("/skill.md", response_class=PlainTextResponse)
