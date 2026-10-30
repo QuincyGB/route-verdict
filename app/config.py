@@ -25,6 +25,56 @@ FACILITATOR_URL = "https://facilitator.ultravioletadao.xyz"
 # catalog indexes only its own settlements.
 PAYAI_FACILITATOR_URL = "https://facilitator.payai.network"
 
+# --- check store location ---------------------------------------------------
+#
+# Where the prior-check sqlite lives decides whether the diff memory
+# survives a redeploy. Resolution order:
+#   1. ROUTE_VERDICT_DB set -> that exact path wins.
+#   2. A volume mounted at /data (Railway Volume) -> /data/route-verdict.db.
+#   3. Plain "route-verdict.db" on the service's own (ephemeral) disk.
+# Durability is measured, never assumed from the path string: a path is
+# persistent only when its nearest existing ancestor directory is a
+# mount point. The probes are bound at module level so tests can fake
+# a volume mount without one.
+
+VOLUME_MOUNT_PATH = "/data"
+STORE_DB_FILENAME = "route-verdict.db"
+
+_isdir = os.path.isdir
+_ismount = os.path.ismount
+_writable = os.access
+
+
+def _nearest_existing_dir(path: str) -> str:
+    d = os.path.dirname(os.path.abspath(path))
+    while d != "/" and not os.path.exists(d):
+        d = os.path.dirname(d)
+    return d
+
+
+def _path_is_persistent(path: str) -> bool:
+    """True when the directory that will hold `path` is a mount point
+    (a volume). "/" itself is always a mount and proves nothing, so a
+    path with no mounted ancestor above the root is ephemeral."""
+    d = _nearest_existing_dir(path)
+    return d != "/" and _ismount(d)
+
+
+def resolve_db_path() -> tuple[str, bool]:
+    """Resolve (db_path, persistent) for the check store."""
+    explicit = os.environ.get("ROUTE_VERDICT_DB", "").strip()
+    if explicit:
+        return explicit, _path_is_persistent(explicit)
+    if (
+        _isdir(VOLUME_MOUNT_PATH)
+        and _ismount(VOLUME_MOUNT_PATH)
+        and _writable(VOLUME_MOUNT_PATH, os.W_OK)
+    ):
+        candidate = os.path.join(VOLUME_MOUNT_PATH, STORE_DB_FILENAME)
+        return candidate, True
+    default = STORE_DB_FILENAME
+    return default, _path_is_persistent(default)
+
 
 @dataclass(frozen=True)
 class Settings:
@@ -36,6 +86,11 @@ class Settings:
     fetch_timeout_s: float  # timeout for probing the target endpoint
     port: int
     db_path: str  # sqlite file holding prior checks (the diff memory)
+    # Measured durability of db_path — see resolve_db_path(): a path
+    # under a mounted volume (e.g. a Railway Volume at /data) survives
+    # redeploys; the container's own disk is wiped by them. Reported
+    # in /health so a silent reset is visible from outside.
+    db_persistent: bool = False
     # Coinbase CDP facilitator credentials (optional). Only used when
     # X402_FACILITATOR_URL points at CDP — see use_cdp below.
     # Fleet-internal shared secret (optional). Gates the unpaid
@@ -80,6 +135,7 @@ def load_settings() -> Settings:
         for k in ("CDP_API_KEY_ID", "CDP_API_KEY_SECRET")
     }
 
+    db_path, db_persistent = resolve_db_path()
     return Settings(
         pay_to=pay_to,
         price_usdc=os.environ.get("X402_PRICE_USDC", "$0.05").strip(),
@@ -88,7 +144,8 @@ def load_settings() -> Settings:
         service_name=os.environ.get("X402_SERVICE_NAME", "route-verdict").strip(),
         fetch_timeout_s=float(os.environ.get("ROUTE_VERDICT_FETCH_TIMEOUT_S", "10")),
         port=int(os.environ.get("PORT", "3000")),
-        db_path=os.environ.get("ROUTE_VERDICT_DB", "route-verdict.db").strip(),
+        db_path=db_path,
+        db_persistent=db_persistent,
         fleet_internal_secret=os.environ.get("FLEET_INTERNAL_SECRET", "").strip() or None,
         **{k.lower(): v for k, v in cdp_keys.items() if v is not None},
     )

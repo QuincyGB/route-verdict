@@ -56,6 +56,14 @@ def test_402_carries_full_bazaar_extension(client):
     assert "verdict" in output["schema"]["properties"]
 
 
+def test_health_reports_check_store_storage(client):
+    body = client.get("/health").json()
+    storage = body["storage"]
+    assert storage["check_db_path"] == main.settings.db_path
+    expected = "persistent" if main.settings.db_persistent else "ephemeral"
+    assert storage["check_store"] == expected
+
+
 def test_free_routes_stay_open(client):
     assert client.get("/health").status_code == 200
     quote = client.get("/quote")

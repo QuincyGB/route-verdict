@@ -307,7 +307,21 @@ async def landing():
 
 @app.get("/health")
 async def health():
-    return {"ok": True, "service": settings.service_name}
+    return {
+        "ok": True,
+        "service": settings.service_name,
+        # Durability of the prior-check store (the diff memory),
+        # measured at startup (config.resolve_db_path) — "persistent"
+        # only when the store file lives on a mounted volume. A reset
+        # like the 2026-10-29 one becomes visible here instead of in
+        # a buyer's empty diff.
+        "storage": {
+            "check_store": (
+                "persistent" if settings.db_persistent else "ephemeral"
+            ),
+            "check_db_path": settings.db_path,
+        },
+    }
 
 
 @app.get("/quote")
