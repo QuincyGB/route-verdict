@@ -322,7 +322,7 @@ def x402_manifest(settings: Settings, base_url: str) -> dict:
         # nudges (app/nudge.py; spec in x402-loop-kits).
         # A top-level extension, NOT a resource — inbound mail is
         # free and the priced route count does not move.
-        "extensions": {"nudge": nudge_extension(base_url)},
+        "extensions": {"nudge": nudge_extension(base_url), "mcp": dict(MCP_SERVER)},
         "resources": [
             {
                 "resource": f"{base_url}/v1/check",
@@ -366,6 +366,17 @@ def x402_manifest(settings: Settings, base_url: str) -> dict:
 
 CARD_NAME = "RouteVerdict"
 CARD_PROVIDER = {"organization": "Verdict Row", "url": "https://github.com/QuincyGB", "email": "patrol@verdictrow.com"}
+
+# The MCP server for this stall: a stdio wrapper (source-only — run by
+# the caller's own MCP host, not hosted here). Canonical reference is
+# the repo and its server.json manifest.
+MCP_SERVER = {
+    "name": "io.github.QuincyGB/route-verdict-mcp",
+    "title": "RouteVerdict MCP server",
+    "transport": "stdio",
+    "repository": "https://github.com/QuincyGB/route-verdict-mcp",
+    "manifest": "https://github.com/QuincyGB/route-verdict-mcp/blob/main/server.json",
+}
 
 
 def _skill_name(path: str) -> str:
@@ -425,6 +436,7 @@ def agent_card(settings: Settings, base_url: str) -> dict:
             "network": settings.network,
             "asset": USDC_ASSET,
         },
+        "mcp": dict(MCP_SERVER),
     }
 
 
@@ -472,6 +484,7 @@ paying it, parses its 402 challenge, and never sends it money. Returns:
 - `GET {base_url}/.well-known/x402` — machine-readable manifest
 - `GET {base_url}/.well-known/agent-card.json` — A2A agent card (skills mirror the priced routes)
 - `GET {base_url}/.well-known/stability-manifest.json` — signed pinned-route stability manifest (prices + schema fingerprints, pinned under an agent-wallet signature)
+- MCP server (stdio, run it in your own MCP host): https://github.com/QuincyGB/route-verdict-mcp — manifest (server.json): https://github.com/QuincyGB/route-verdict-mcp/blob/main/server.json — tools wrap the priced route (/v1/check)
 
 ## Honest limits
 
@@ -496,4 +509,5 @@ Paid API: trust & liveness checks for x402 endpoints. Price: {settings.price_usd
 - GET {base_url}/.well-known/x402 — manifest
 - GET {base_url}/.well-known/agent-card.json — A2A agent card (skills mirror the priced routes)
 - GET {base_url}/.well-known/stability-manifest.json — signed pinned-route stability manifest (prices + schema fingerprints)
+- MCP server (stdio, run it in your own MCP host): https://github.com/QuincyGB/route-verdict-mcp — manifest (server.json): https://github.com/QuincyGB/route-verdict-mcp/blob/main/server.json — tools wrap the priced route (/v1/check)
 """
