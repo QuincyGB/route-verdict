@@ -69,7 +69,10 @@ async def cdp_bazaar_presence(
         return _unknown("No payTo could be parsed from the challenge, so the CDP merchant lookup cannot run.")
     try:
         resp = await client.get(CDP_MERCHANT_URL, params={"payTo": pay_to})
-    except httpx.HTTPError as e:
+    except Exception as e:  # noqa: BLE001 — ANY lookup failure is "unknown"
+        # (Next-20 #18: a non-HTTPError transport/harness failure used
+        # to escape run_check and surface as an opaque 502; the
+        # contract for this lookup is failed = unknown, never a crash.)
         return _unknown(f"CDP merchant lookup failed: {e}")
     if resp.status_code != 200:
         return _unknown(f"CDP merchant lookup returned HTTP {resp.status_code}.")
@@ -100,7 +103,7 @@ async def payai_presence(client: httpx.AsyncClient, resource_url: str) -> dict:
     """Does PayAI's index hold a catalog row for resource_url?"""
     try:
         resp = await client.get(PAYAI_LISTING_STATUS_URL, params={"resource": resource_url})
-    except httpx.HTTPError as e:
+    except Exception as e:  # noqa: BLE001 — ANY lookup failure is "unknown"
         return _unknown(f"PayAI listing-status lookup failed: {e}")
     if resp.status_code == 404:
         return {
