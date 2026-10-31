@@ -1,0 +1,102 @@
+{
+  "catalog": {
+    "cdp_bazaar": {
+      "detail": "payTo wallet has 29 CDP Bazaar resources; this URL is not among them.",
+      "last_called_at": null,
+      "status": "not_listed",
+      "total_calls_30d": null,
+      "unique_payers_30d": null
+    },
+    "payai": {
+      "detail": "PayAI holds a catalog row for this resource.",
+      "last_called_at": null,
+      "status": "listed",
+      "total_calls_30d": null,
+      "unique_payers_30d": null
+    }
+  },
+  "checked_at": "2026-10-30T02:42:55.632756+00:00",
+  "diff": {
+    "changes": [],
+    "contract_stability": "unknown",
+    "field_changes": [],
+    "prior_check": false,
+    "prior_checked_at": null,
+    "schema_score_stability": "unknown",
+    "summary": "no prior check on record"
+  },
+  "live": false,
+  "liveness": {
+    "alive": true,
+    "http_status": 402,
+    "latency_ms": 778,
+    "method": "POST",
+    "parse_error": null,
+    "x402_valid": true
+  },
+  "reasons": [
+    {
+      "deduction": 10,
+      "detail": "payTo wallet has 29 CDP Bazaar resources; this URL is not among them.",
+      "name": "not listed in CDP Bazaar"
+    }
+  ],
+  "recorded_at": "2026-10-30T02:42:55.632756+00:00",
+  "resource_url": "https://token-verdict-production.up.railway.app/v1/verdict",
+  "route": "/v1/check",
+  "sample": true,
+  "sample_note": "Recorded response of this route against the target below, served from the fleet's recorded state \u2014 not live data.",
+  "schema_quality": {
+    "contract": {
+      "output": {
+        "$": "object",
+        "$ (required)": "market,score,signals,take,token,verdict",
+        "$.market": "object",
+        "$.market (required)": "dex,liquidity_usd,pair_url,price_change_24h_pct,price_usd,txns_24h,volume_24h_usd",
+        "$.market.dex": "null|string",
+        "$.market.liquidity_usd": "null|number",
+        "$.market.pair_url": "null|string",
+        "$.market.price_change_24h_pct": "null|number",
+        "$.market.price_usd": "null|string",
+        "$.market.txns_24h": "object",
+        "$.market.txns_24h.buys": "integer",
+        "$.market.txns_24h.sells": "integer",
+        "$.market.volume_24h_usd": "null|number",
+        "$.score": "number",
+        "$.signals": "array",
+        "$.signals[]": "object",
+        "$.signals[] (required)": "detail,name,score,weight",
+        "$.signals[].detail": "string",
+        "$.signals[].name": "string",
+        "$.signals[].score": "integer",
+        "$.signals[].weight": "number",
+        "$.take": "string",
+        "$.token": "object",
+        "$.token (required)": "address,chain,name,symbol",
+        "$.token.address": "string",
+        "$.token.chain": "string",
+        "$.token.name": "string",
+        "$.token.symbol": "string",
+        "$.verdict": "string enum=[\"SOLID\", \"CAUTION\", \"DANGER\"]"
+      }
+    },
+    "deductions": [],
+    "extension_present": true,
+    "hollow": false,
+    "score": 100
+  },
+  "score": 90.0,
+  "source": "recorded",
+  "target": "https://token-verdict-production.up.railway.app/v1/verdict",
+  "terms": {
+    "amount_units": "20000",
+    "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    "found": true,
+    "network": "eip155:8453",
+    "pay_to": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+    "price_usdc": "$0.02",
+    "scheme": "exact",
+    "x402_version": 2
+  },
+  "verdict": "TRUSTED"
+}
