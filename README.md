@@ -98,3 +98,22 @@ would cost the target's price per check and entangle the checker in the
 target's settlement path), does not grade the paid payload's quality,
 and cannot see inside the target's wallet — the diff flags payTo
 changes, it does not explain them.
+
+## Fleet & discovery links
+
+One of five Verdict Row stalls — 40 priced routes fleet-wide, one
+payTo (`0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F`), contact
+patrol@verdictrow.com (Ren, Verdict Row Patrol).
+
+- **Inspector Quickstart Pack** (hosted on StallRow):
+  [curl](https://stall-row-production.up.railway.app/quickstart/curl) ·
+  [Python](https://stall-row-production.up.railway.app/quickstart/python) ·
+  [TypeScript](https://stall-row-production.up.railway.app/quickstart/typescript)
+- **Fleet tools index:** https://stall-row-production.up.railway.app/tools
+  (machine-readable: https://stall-row-production.up.railway.app/tools.json)
+- **This stall's MCP server:** [route-verdict-mcp](https://github.com/QuincyGB/route-verdict-mcp) —
+  manifest (server.json):
+  https://github.com/QuincyGB/route-verdict-mcp/blob/main/server.json (stdio)
+- **Discovery bundle (fleet):** https://route-verdict-production.up.railway.app/.well-known/verdict-row.json
+- **A2A agent card:** https://route-verdict-production.up.railway.app/.well-known/a2a-agent-card.json
+- **Full agent docs:** https://route-verdict-production.up.railway.app/llms-full.txt (index: https://route-verdict-production.up.railway.app/llms.txt)
