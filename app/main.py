@@ -224,6 +224,24 @@ async def _body_cap(request: Request, call_next):
     return await call_next(request)
 
 
+# TEMPORARY (2026-11-01): nohumans.directory listing-claim proof.
+# Serves the listing's one-time claim token as a response header on
+# its endpoint so the directory can verify control of the origin.
+# Removed in a follow-up commit once the claim completes.
+_NOHUMANS_CLAIM_TOKENS = {
+    "/v1/check": "b6ef62a18cade50dd6837317b48ea57ffb4e821f340b608e",
+}
+
+
+@app.middleware("http")
+async def _nohumans_claim_header(request: Request, call_next):
+    response = await call_next(request)
+    token = _NOHUMANS_CLAIM_TOKENS.get(request.url.path)
+    if token:
+        response.headers["x-nohumans-claim"] = token
+    return response
+
+
 class CheckRequest(BaseModel):
     resource_url: str = Field(description="Full URL of the x402 resource to audit")
 
