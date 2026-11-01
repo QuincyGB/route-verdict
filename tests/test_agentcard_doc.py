@@ -7,11 +7,18 @@ in the x402 block, and no capability claimed that the service does
 not have. The HTTP surface is a free 200 JSON document.
 """
 
+import json
+
 from fastapi.testclient import TestClient
 
 import app.main as main
 from app.config import load_settings
-from app.discovery import CARD_NAME, agent_card, x402_manifest
+from app.discovery import (
+    CARD_NAME,
+    CHECK_INPUT_EXAMPLE,
+    agent_card,
+    x402_manifest,
+)
 
 BASE = "https://stall.example"
 
@@ -49,6 +56,17 @@ def test_card_skills_mirror_priced_routes():
         # The amount a verifier compares against the live challenge.
         assert entry["amount"] == str(base_accept["amount"])
         assert base_accept["payTo"] == settings.pay_to
+
+
+def test_card_check_skill_carries_input_example():
+    settings = load_settings()
+    card = agent_card(settings, BASE)
+    skill = next(s for s in card["skills"] if s["id"] == "v1-check")
+    # Standard A2A shape (mirrors StallRow): examples is a list of
+    # strings, each a JSON-serialized worked example — here the
+    # canonical /v1/check input example, verbatim.
+    assert skill["examples"] == [json.dumps(CHECK_INPUT_EXAMPLE)]
+    assert json.loads(skill["examples"][0]) == CHECK_INPUT_EXAMPLE
 
 
 def test_card_http_surface_is_free_json():

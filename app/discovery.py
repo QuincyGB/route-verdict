@@ -10,6 +10,8 @@ here. A test validates the shipped example against the schema.
 
 from __future__ import annotations
 
+import json
+
 from .config import Settings
 from .nudge import nudge_extension
 
@@ -339,8 +341,8 @@ def x402_manifest(settings: Settings, base_url: str) -> dict:
                 ),
                 "tags": ["x402", "trust", "liveness", "monitoring", "verification", "agents", "delivery-verified", "preflight", "drift", "payto", "endpoint-verification"],
                 "accepts": accepts,
-                "inputSchema": CHECK_INPUT_SCHEMA,
-                "outputSchema": CHECK_OUTPUT_SCHEMA,
+                "inputSchema": {**CHECK_INPUT_SCHEMA, "example": CHECK_INPUT_EXAMPLE},
+                "outputSchema": {**CHECK_OUTPUT_SCHEMA, "example": CHECK_OUTPUT_EXAMPLE},
             },
             {
                 "resource": f"{base_url}/quote",
@@ -453,6 +455,11 @@ def agent_card(settings: Settings, base_url: str) -> dict:
                 "name": _skill_name(path),
                 "description": r["description"],
                 "tags": r.get("tags") or [],
+                "examples": (
+                    [json.dumps(CHECK_INPUT_EXAMPLE)]
+                    if path == "/v1/check"
+                    else []
+                ),
                 "inputModes": ["application/json"],
                 "outputModes": ["application/json"],
             }

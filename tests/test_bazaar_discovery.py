@@ -19,6 +19,8 @@ from fastapi.testclient import TestClient
 import app.main as main
 from app.config import Settings, load_settings
 from app.discovery import (
+    CHECK_INPUT_EXAMPLE,
+    CHECK_INPUT_SCHEMA,
     CHECK_OUTPUT_EXAMPLE,
     CHECK_OUTPUT_SCHEMA,
     bazaar_extension,
@@ -161,6 +163,29 @@ def test_output_schema_types_every_field():
     )
 
 
+def test_manifest_resource_carries_both_example_keys():
+    settings = load_settings()
+    manifest = x402_manifest(settings, "https://example.test")
+    resource = next(
+        r for r in manifest["resources"] if r.get("method") == "POST"
+    )
+    # The priced resource's schemas carry the canonical worked examples
+    # verbatim (JSON-Schema "example" keyword), matching the Bazaar
+    # extension's info.input.body / info.output.example.
+    assert resource["inputSchema"]["example"] == CHECK_INPUT_EXAMPLE
+    assert resource["outputSchema"]["example"] == CHECK_OUTPUT_EXAMPLE
+    # The rest of each schema is unchanged from the canonical schemas.
+    assert {
+        k: v for k, v in resource["inputSchema"].items() if k != "example"
+    } == CHECK_INPUT_SCHEMA
+    assert {
+        k: v for k, v in resource["outputSchema"].items() if k != "example"
+    } == CHECK_OUTPUT_SCHEMA
+    ext = bazaar_extension()
+    assert resource["inputSchema"]["example"] == ext["info"]["input"]["body"]
+    assert resource["outputSchema"]["example"] == ext["info"]["output"]["example"]
+
+
 def test_example_validates_against_output_schema():
     jsonschema.validate(instance=CHECK_OUTPUT_EXAMPLE, schema=CHECK_OUTPUT_SCHEMA)
 
@@ -194,7 +219,12 @@ def test_discovery_endpoints_live_and_consistent(client):
     assert resource["accepts"][0]["amount"] == "50000"
     assert resource["accepts"][0]["payTo"] == "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
     assert resource["inputSchema"]["required"] == ["resource_url"]
-    assert resource["outputSchema"] == CHECK_OUTPUT_SCHEMA
+    assert resource["inputSchema"]["example"] == CHECK_INPUT_EXAMPLE
+    assert resource["outputSchema"]["example"] == CHECK_OUTPUT_EXAMPLE
+    assert resource["outputSchema"] == {
+        **CHECK_OUTPUT_SCHEMA,
+        "example": CHECK_OUTPUT_EXAMPLE,
+    }
     assert len(body["description"]) < 500
 
     assert client.get("/llms.txt").status_code == 200
