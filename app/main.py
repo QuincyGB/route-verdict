@@ -44,6 +44,7 @@ from x402.server import x402ResourceServer
 from . import checker as checker_svc
 from . import nudge as nudge_svc
 from .checker import run_check
+from .loop_offer import attach_loop_offer
 from .config import load_settings
 from .discovery import OWNERSHIP_PROOFS, agent_card, bazaar_extension, llms_txt, skill_md, x402_manifest
 from . import samples as samples_svc
@@ -666,11 +667,12 @@ async def check(req: CheckRequest):
     """Paid endpoint — unreachable until the x402 middleware verifies payment."""
     resource_url = req.resource_url.strip()
     try:
-        return await run_check(
+        result = await run_check(
             resource_url,
             get_store(),
             check_timeout=settings.fetch_timeout_s,
         )
+        return attach_loop_offer(result)
     except ValueError as e:
         return JSONResponse({"error": str(e)}, status_code=422)
     except Exception:  # noqa: BLE001 — never leak tracebacks to callers
