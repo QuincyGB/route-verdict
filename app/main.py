@@ -47,6 +47,7 @@ from .checker import run_check
 from .config import load_settings
 from .discovery import OWNERSHIP_PROOFS, agent_card, bazaar_extension, llms_txt, skill_md, x402_manifest
 from . import samples as samples_svc
+from .openapi_examples import add_worked_examples
 from .store import CheckStore
 
 log = logging.getLogger("route-verdict")
@@ -122,6 +123,7 @@ def _openapi_with_ownership_proofs():
     if app.openapi_schema:
         return app.openapi_schema
     schema = get_openapi(title=app.title, version=app.version, routes=app.routes)
+    add_worked_examples(schema)
     schema["x-discovery"] = {"ownershipProofs": OWNERSHIP_PROOFS}
     schema["x-agentcash-provenance"] = {"ownershipProofs": OWNERSHIP_PROOFS}
     app.openapi_schema = schema
