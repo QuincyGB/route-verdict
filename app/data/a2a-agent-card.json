@@ -1,0 +1,74 @@
+{
+  "capabilities": {
+    "pushNotifications": false,
+    "stateTransitionHistory": false,
+    "streaming": false
+  },
+  "contactEmail": "patrol@verdictrow.com",
+  "defaultInputModes": [
+    "application/json"
+  ],
+  "defaultOutputModes": [
+    "application/json"
+  ],
+  "description": "Trust checks for x402 endpoints: send any paid resource URL, get a TRUSTED / CAUTION / AVOID verdict with a 0-100 score, an itemized deduction list, catalog presence in the CDP Bazaar and PayAI indexes, and a diff against the last check. No API key, no signup, $0.05 USDC per check. Use this when an agent, monitor, or inspector needs to verify an x402 route before paying it or relying on it.",
+  "discovery_bundle": "https://route-verdict-production.up.railway.app/.well-known/verdict-row.json",
+  "documentationUrl": "https://route-verdict-production.up.railway.app/llms.txt",
+  "name": "RouteVerdict",
+  "protocolVersion": "0.3.0",
+  "provider": {
+    "email": "patrol@verdictrow.com",
+    "organization": "Verdict Row",
+    "url": "https://github.com/QuincyGB"
+  },
+  "services": [
+    {
+      "amount": "50000",
+      "endpoint": "https://route-verdict-production.up.railway.app/v1/check",
+      "name": "/v1/check"
+    }
+  ],
+  "skills": [
+    {
+      "description": "Trust & liveness check for one x402 resource URL: live 402 probe (never pays the target), terms, discovery-schema quality, catalog presence, diff. Use this when auditing an unfamiliar x402 endpoint before paying or relying on it.",
+      "id": "v1-check",
+      "inputModes": [
+        "application/json"
+      ],
+      "method": "POST",
+      "name": "Check",
+      "outputModes": [
+        "application/json"
+      ],
+      "price": {
+        "amount_units": "50000",
+        "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+        "display": "$0.05",
+        "network": "eip155:8453",
+        "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+        "protocol": "x402",
+        "scheme": "exact",
+        "usd": "0.05"
+      },
+      "tags": [
+        "x402",
+        "trust",
+        "liveness",
+        "monitoring",
+        "verification",
+        "agents"
+      ],
+      "url": "https://route-verdict-production.up.railway.app/v1/check"
+    }
+  ],
+  "url": "https://route-verdict-production.up.railway.app",
+  "version": "1.0.0",
+  "x402": {
+    "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    "discovery": "https://route-verdict-production.up.railway.app/.well-known/x402",
+    "network": "eip155:8453",
+    "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
+    "scheme": "exact",
+    "version": 2
+  }
+}
