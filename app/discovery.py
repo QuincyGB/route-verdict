@@ -337,7 +337,7 @@ def x402_manifest(settings: Settings, base_url: str) -> dict:
                     "Use this when auditing an unfamiliar x402 endpoint "
                     "before paying or relying on it."
                 ),
-                "tags": ["x402", "trust", "liveness", "monitoring", "verification", "agents"],
+                "tags": ["x402", "trust", "liveness", "monitoring", "verification", "agents", "delivery-verified", "preflight", "drift", "payto", "endpoint-verification"],
                 "accepts": accepts,
                 "inputSchema": CHECK_INPUT_SCHEMA,
                 "outputSchema": CHECK_OUTPUT_SCHEMA,
