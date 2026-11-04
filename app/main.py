@@ -853,6 +853,20 @@ async def check(req: CheckRequest):
         return JSONResponse({"error": "check failed"}, status_code=502)
 
 
+# --- sandbox twins (Next-20 #19) -------------------------------------------
+# Free rehearsal twins of every priced route, registered after all
+# priced routes exist (twins bind to their request models). Twin
+# paths are absent from PRICE_UNITS: no paywall, no pack/pass
+# debit, no loop block, no payer-memory record.
+from . import sandbox_twins as sandbox_twins_svc
+sandbox_twins_svc.register_sandbox_twins(
+    app,
+    service="route-verdict",
+    priced_paths=PRICE_UNITS,
+    manifest_samples=samples_svc._manifest()["samples"],
+    sample_get=samples_svc.get,
+)
+
 def main() -> None:
     import uvicorn
 
