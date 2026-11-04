@@ -61,6 +61,14 @@ def test_paid_delivery_carries_the_block(monkeypatch):
         return {"verdict": "TRUSTED", "resource_url": resource_url}
 
     out = _run_check_handler(monkeypatch, fake)
+    # Since Next-20 #1/#5 the block attaches at the delivery layer
+    # (app/main.py's x402 middleware — see
+    # tests/test_loop_offer_fleetwide.py), NOT in the handler: the
+    # handler alone returns the plain delivery, so the
+    # fleet-internal unpaid path that calls it directly carries no
+    # block. The attach function itself still adds it unchanged.
+    assert "verdict_row_loop" not in out
+    out = loop_offer.attach_loop_offer(out)
     assert out["verdict"] == "TRUSTED"  # original fields untouched
     block = out["verdict_row_loop"]
     assert _offers_by_id(block)["fleet_pass"]["price_usd"] == 5.0
