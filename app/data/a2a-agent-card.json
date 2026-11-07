@@ -56,7 +56,12 @@
         "liveness",
         "monitoring",
         "verification",
-        "agents"
+        "agents",
+        "delivery-verified",
+        "preflight",
+        "drift",
+        "payto",
+        "endpoint-verification"
       ],
       "url": "https://route-verdict-production.up.railway.app/v1/check"
     }
