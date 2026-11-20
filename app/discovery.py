@@ -35,7 +35,7 @@ OWNERSHIP_PROOFS = [
 
 
 def _price_to_units(price_usdc: str) -> str:
-    """'$0.05' -> '50000' (USDC smallest units, 6 decimals)."""
+    """'$0.03' -> '30000' (USDC smallest units, 6 decimals)."""
     return str(int(round(float(price_usdc.replace("$", "").strip()) * 1_000_000)))
 
 

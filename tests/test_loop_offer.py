@@ -32,10 +32,10 @@ def test_block_terms_match_stallrow_enforcement():
 
     pack = offers["recheck_pack"]
     assert pack["url"] == f"{LEDGER_URL}/v1/recheck/pack"
-    assert pack["price_usd"] == 1.0
+    assert pack["price_usd"] == 0.10
     assert pack["terms"]["credits"] == 250
     assert pack["terms"]["ttl_days"] == 90
-    assert pack["terms"]["per_check_usd"] == 1.0 / 250
+    assert pack["terms"]["per_check_usd"] == 0.10 / 250
     assert pack["terms"]["per_call_price_usd"] == 0.005
 
     hook = offers["recheck_change_webhook"]

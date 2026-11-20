@@ -138,7 +138,7 @@ def load_settings() -> Settings:
     db_path, db_persistent = resolve_db_path()
     return Settings(
         pay_to=pay_to,
-        price_usdc=os.environ.get("X402_PRICE_USDC", "$0.05").strip(),
+        price_usdc=os.environ.get("X402_PRICE_USDC", "$0.03").strip(),
         network=network,
         facilitator_url=facilitator_url,
         service_name=os.environ.get("X402_SERVICE_NAME", "route-verdict").strip(),

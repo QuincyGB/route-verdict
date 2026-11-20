@@ -188,8 +188,8 @@ _PASS_PATHS = {"/v1/check"}
 
 
 def _price_units(price: str) -> int:
-    """USDC smallest units for a settings price string ("$0.05" ->
-    50000) — derived from the same string the x402 route charges,
+    """USDC smallest units for a settings price string ("$0.03" ->
+    30000) — derived from the same string the x402 route charges,
     never restated by hand."""
     return int(round(float(price.strip().lstrip("$")) * 1_000_000))
 
@@ -511,7 +511,7 @@ LANDING_HTML = """<!DOCTYPE html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>RouteVerdict — trust &amp; liveness checks for x402 endpoints</title>
-<meta name="description" content="Before an agent pays an unfamiliar x402 endpoint, it pays $0.05 to ask RouteVerdict: is it alive, what does it charge, is its discovery schema real, is it cataloged — and has anything changed since last time?">
+<meta name="description" content="Before an agent pays an unfamiliar x402 endpoint, it pays $0.03 to ask RouteVerdict: is it alive, what does it charge, is its discovery schema real, is it cataloged — and has anything changed since last time?">
 <style>
   body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
          max-width: 760px; margin: 40px auto; padding: 0 20px 60px;
@@ -534,14 +534,14 @@ LANDING_HTML = """<!DOCTYPE html>
 <body>
 <h1>RouteVerdict</h1>
 <p class="tag">The trust layer for x402 itself. Before an agent pays an
-unfamiliar x402 endpoint, it pays <strong>$0.05</strong> to ask RouteVerdict
+unfamiliar x402 endpoint, it pays <strong>$0.03</strong> to ask RouteVerdict
 first: is it alive, what does it charge, is its discovery schema real, is it
 cataloged — and has anything changed since last time? No accounts, no API
 keys: <em>payment is the authentication.</em></p>
 
 <p><span class="pill">Live on Base mainnet</span>
 <span class="pill">x402 v2 · exact scheme</span>
-<span class="pill">$0.05 USDC / check</span>
+<span class="pill">$0.03 USDC / check</span>
 <span class="pill">Observation only — never pays the target</span></p>
 
 <h2>What a check returns</h2>
@@ -568,7 +568,7 @@ keys: <em>payment is the authentication.</em></p>
 <pre>curl -X POST https://route-verdict-production.up.railway.app/v1/check \\
   -H 'content-type: application/json' \\
   -d '{"resource_url":"https://some-service.example.com/v1/endpoint"}'</pre>
-<p>Unpaid calls return an HTTP 402 x402 challenge. Pay $0.05 USDC on Base
+<p>Unpaid calls return an HTTP 402 x402 challenge. Pay $0.03 USDC on Base
 with any x402 v2 client, retry with the payment header, and the report
 comes back. There is no signup and no key to manage — the settlement is
 the credential.</p>
@@ -576,7 +576,7 @@ the credential.</p>
 <h2>Endpoints</h2>
 <table>
   <tr><th>Route</th><th>Price</th><th>Purpose</th></tr>
-  <tr><td><code>POST /v1/check</code></td><td>$0.05</td>
+  <tr><td><code>POST /v1/check</code></td><td>$0.03</td>
       <td>Trust &amp; liveness check for one x402 resource URL (paid, x402)</td></tr>
   <tr><td><code>GET /quote</code></td><td>free</td>
       <td>Price, asset, network, pay-to wallet</td></tr>

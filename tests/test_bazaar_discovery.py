@@ -96,7 +96,7 @@ def test_payai_url_constant_matches_settings_selection():
 def test_defaults_are_route_verdict_terms():
     s = _settings()
     assert s.pay_to == "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
-    assert s.price_usdc == "$0.05"
+    assert s.price_usdc == "$0.03"
     assert s.network == "eip155:8453"
     assert s.service_name == "route-verdict"
 
@@ -215,8 +215,8 @@ def test_discovery_endpoints_live_and_consistent(client):
     body = manifest.json()
     assert body["service"] == "route-verdict"
     resource = body["resources"][0]
-    assert resource["price"] == "$0.05"
-    assert resource["accepts"][0]["amount"] == "50000"
+    assert resource["price"] == "$0.03"
+    assert resource["accepts"][0]["amount"] == "30000"
     assert resource["accepts"][0]["payTo"] == "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
     assert resource["inputSchema"]["required"] == ["resource_url"]
     assert resource["inputSchema"]["example"] == CHECK_INPUT_EXAMPLE

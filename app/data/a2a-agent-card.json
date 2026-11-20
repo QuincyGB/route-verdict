@@ -23,7 +23,7 @@
   },
   "services": [
     {
-      "amount": "50000",
+      "amount": "30000",
       "endpoint": "https://route-verdict-production.up.railway.app/v1/check",
       "name": "/v1/check"
     }
@@ -41,14 +41,14 @@
         "application/json"
       ],
       "price": {
-        "amount_units": "50000",
+        "amount_units": "30000",
         "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-        "display": "$0.05",
+        "display": "$0.03",
         "network": "eip155:8453",
         "payTo": "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F",
         "protocol": "x402",
         "scheme": "exact",
-        "usd": "0.05"
+        "usd": "0.03"
       },
       "tags": [
         "x402",

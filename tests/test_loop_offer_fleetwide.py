@@ -87,7 +87,7 @@ def test_per_call_delivery_carries_block(monkeypatch, tmp_path):
     assert r.status_code == 200, r.text
     block = r.json()["verdict_row_loop"]
     offers = {o["id"]: o for o in block["offers"]}
-    assert offers["recheck_pack"]["price_usd"] == 1.0
+    assert offers["recheck_pack"]["price_usd"] == 0.10
     assert offers["fleet_pass"]["url"] == f"{LEDGER_URL}/v1/fleet-pass"
     # First-time payer: the static block, no personalised section.
     assert "returning_payer" not in block
@@ -144,7 +144,7 @@ def test_second_per_call_delivery_is_personalised(monkeypatch, tmp_path):
 
     offer = rp["adaptive_offer"]
     assert offer["credits"] == 250
-    assert offer["price_usd"] == 1.0
+    assert offer["price_usd"] == 0.10
     assert "250" in offer["line"] and "2" in offer["line"]
     assert offer["deep_link"] == f"{LEDGER_URL}/v1/recheck/pack?payer={WALLET}"
     assert offer["webhook_deep_link"] == (
@@ -207,7 +207,7 @@ def test_unpaid_challenge_carries_no_block_and_records_nothing(
     assert "verdict_row_loop" not in r.text
     challenge = json.loads(base64.b64decode(r.headers["payment-required"]))
     accept = challenge["accepts"][0]
-    assert accept["amount"] == str(CHECK_UNITS) == "50000"
+    assert accept["amount"] == str(CHECK_UNITS) == "30000"
     assert accept["payTo"] == OWNER
     assert fresh.payer_history(WALLET) is None
 
@@ -282,5 +282,5 @@ def test_store_counts_calls_days_and_spend(tmp_path):
 
 
 def test_price_units_derived_from_settings():
-    assert CHECK_UNITS == 50000
+    assert CHECK_UNITS == 30000
     assert main._price_units(main.settings.price_usdc) == CHECK_UNITS

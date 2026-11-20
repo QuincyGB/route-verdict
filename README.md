@@ -1,6 +1,6 @@
 # RouteVerdict — trust & liveness checks for x402 endpoints
 
-**Before an agent pays an unfamiliar x402 endpoint, it pays $0.05 to ask
+**Before an agent pays an unfamiliar x402 endpoint, it pays $0.03 to ask
 RouteVerdict first.** One `POST /v1/check` with a resource URL returns a
 TRUSTED / CAUTION / AVOID verdict with a 0-100 trust score — the trust
 layer for x402 itself, sold to the buyers who demonstrably pay repeatedly
@@ -42,7 +42,7 @@ payout wallet.
 
 | Route | Price | Purpose |
 |---|---|---|
-| `POST /v1/check` | $0.05 USDC | Trust & liveness check for one x402 resource URL (x402 v2, Base) |
+| `POST /v1/check` | $0.03 USDC | Trust & liveness check for one x402 resource URL (x402 v2, Base) |
 | `GET /quote` | free | Price, asset, network, pay-to wallet |
 | `GET /.well-known/x402` | free | Machine-readable manifest (full input/output schemas) |
 | `GET /skill.md` | free | Documentation written for agents |
@@ -82,7 +82,7 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 ```
 
 Key env (see `.env.example`): `X402_PAY_TO` (payout wallet),
-`X402_PRICE_USDC` (default `$0.05`), `X402_FACILITATOR_URL`,
+`X402_PRICE_USDC` (default `$0.03`), `X402_FACILITATOR_URL`,
 `CDP_API_KEY_ID` / `CDP_API_KEY_SECRET`, `ROUTE_VERDICT_DB` (sqlite path
 — put it on a persistent volume in production or diffs reset per deploy),
 `ROUTE_VERDICT_FETCH_TIMEOUT_S`.

@@ -1,5 +1,5 @@
 """The paywall contract: unpaid POST /v1/check gets a 402 whose accepts
-carry RouteVerdict's real terms ($0.05 USDC on Base to the owner wallet)
+carry RouteVerdict's real terms ($0.03 USDC on Base to the owner wallet)
 and the full Bazaar discovery extension; free routes stay open.
 
 Offline: the middleware builds the challenge locally; no facilitator
@@ -39,7 +39,7 @@ def test_unpaid_check_is_paywalled_with_correct_accepts(client):
     assert a["scheme"] == "exact"
     assert a["network"] == "eip155:8453"
     assert a["asset"] == USDC
-    assert a["amount"] == "50000"  # $0.05 in USDC smallest units
+    assert a["amount"] == "30000"  # $0.03 in USDC smallest units
     assert a["payTo"] == main.settings.pay_to
     assert a["payTo"] == "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
 
@@ -69,7 +69,7 @@ def test_free_routes_stay_open(client):
     quote = client.get("/quote")
     assert quote.status_code == 200
     body = quote.json()
-    assert body["price"] == "$0.05"
+    assert body["price"] == "$0.03"
     assert body["endpoint"] == "/v1/check"
     assert body["payTo"] == "0x097f9685D1e0752bF8B02d61E5Ce9be7eA0FBA7F"
     assert client.get("/").status_code == 200
