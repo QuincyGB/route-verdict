@@ -333,11 +333,7 @@ def x402_manifest(settings: Settings, base_url: str) -> dict:
                 "scheme": "exact",
                 "mimeType": "application/json",
                 "description": (
-                    "Trust & liveness check for one x402 resource URL: "
-                    "live 402 probe (never pays the target), terms, "
-                    "discovery-schema quality, catalog presence, diff. "
-                    "Use this when auditing an unfamiliar x402 endpoint "
-                    "before paying or relying on it."
+                    'Trust & liveness check for one x402 resource URL: live 402 probe (the probe sends no payment to the target), terms, discovery-schema quality, catalog presence, diff. Use this when auditing an unfamiliar x402 endpoint before paying or relying on it.'
                 ),
                 "tags": ["x402", "trust", "liveness", "monitoring", "verification", "agents", "delivery-verified", "preflight", "drift", "payto", "endpoint-verification"],
                 "accepts": accepts,
