@@ -11,7 +11,7 @@
   "defaultOutputModes": [
     "application/json"
   ],
-  "description": "Trust checks for x402 endpoints: send any paid resource URL, get a TRUSTED / CAUTION / AVOID verdict with a 0-100 score, an itemized deduction list, catalog presence in the CDP Bazaar and PayAI indexes, and a diff against the last check. No API key, no signup, $0.05 USDC per check. Use this when an agent, monitor, or inspector needs to verify an x402 route before paying it or relying on it.",
+  "description": "Trust checks for x402 endpoints: send any paid resource URL, get a TRUSTED / CAUTION / AVOID verdict with a 0-100 score, an itemized deduction list, catalog presence in the CDP Bazaar and PayAI indexes, and a diff against the last check. No API key, no signup, $0.03 USDC per check. Use this when an agent, monitor, or inspector needs to verify an x402 route before paying it or relying on it.",
   "discovery_bundle": "https://route-verdict-production.up.railway.app/.well-known/verdict-row.json",
   "documentationUrl": "https://route-verdict-production.up.railway.app/llms.txt",
   "name": "RouteVerdict",
@@ -30,7 +30,7 @@
   ],
   "skills": [
     {
-      "description": "Trust & liveness check for one x402 resource URL: live 402 probe (never pays the target), terms, discovery-schema quality, catalog presence, diff. Use this when auditing an unfamiliar x402 endpoint before paying or relying on it.",
+      "description": "Trust & liveness check for one x402 resource URL: live 402 probe (the probe sends no payment to the target), terms, discovery-schema quality, catalog presence, diff. Use this when auditing an unfamiliar x402 endpoint before paying or relying on it.",
       "id": "v1-check",
       "inputModes": [
         "application/json"
