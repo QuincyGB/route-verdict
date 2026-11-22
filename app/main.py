@@ -49,7 +49,7 @@ from . import delivery_ledger as delivery_ledger_svc
 from .config import load_settings
 from .discovery import OWNERSHIP_PROOFS, agent_card, bazaar_extension, llms_txt, skill_md, x402_manifest
 from . import samples as samples_svc
-from .openapi_examples import add_worked_examples
+from .openapi_examples import add_payment_info, add_worked_examples
 from .store import CheckStore
 
 log = logging.getLogger("route-verdict")
@@ -126,6 +126,31 @@ def _openapi_with_ownership_proofs():
         return app.openapi_schema
     schema = get_openapi(title=app.title, version=app.version, routes=app.routes)
     add_worked_examples(schema)
+    # AgentCash canonical discovery (W8 spec 3b): paid operations carry
+    # x-payment-info + a declared 402 response, derived from settings --
+    # the same price / network / payTo the route config above charges.
+    add_payment_info(
+        schema,
+        {
+            "/v1/check": {
+                "amount": settings.price_usdc.strip().lstrip("$"),
+                "protocols": [
+                    {"x402": {"scheme": "exact", "network": settings.network, "payTo": settings.pay_to}}
+                ],
+            }
+        },
+        guidance=(
+            f"{settings.service_name} sells pay-per-call x402 route and contract "
+            f"trust checks over the x402 protocol (v2, exact scheme, USDC on "
+            f"{settings.network}, payTo {settings.pay_to}). Paid operations are "
+            "marked with x-payment-info; call one without payment to receive "
+            "the HTTP 402 challenge, pay it with any x402 v2 client, and retry "
+            "with the payment proof -- no account or API key. Prices in "
+            "x-payment-info are decimal USD and match the live 402 challenge. "
+            "Free discovery: GET /.well-known/x402, /quote and /health. "
+            "Contact: patrol@verdictrow.com."
+        ),
+    )
     schema["x-discovery"] = {"ownershipProofs": OWNERSHIP_PROOFS}
     schema["x-agentcash-provenance"] = {"ownershipProofs": OWNERSHIP_PROOFS}
     app.openapi_schema = schema
