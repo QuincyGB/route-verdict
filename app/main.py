@@ -46,6 +46,7 @@ from . import nudge as nudge_svc
 from .checker import run_check
 from . import loop_offer as loop_offer_svc
 from . import delivery_ledger as delivery_ledger_svc
+from . import response_upgrades as response_upgrades_svc
 from .config import load_settings
 from .discovery import OWNERSHIP_PROOFS, agent_card, bazaar_extension, llms_txt, skill_md, x402_manifest
 from . import samples as samples_svc
@@ -428,6 +429,19 @@ async def _attach_loop_offer(
         return _rebuild_response(body, response, content_type)
     payer = _record_loop_delivery(request, credential)
     loop_offer_svc.attach_loop_offer(data, payer=payer, route=request.url.path)
+    # Response upgrades (W2): next_check + evidence on every paid
+    # delivery, attached HERE — the central paid-delivery path every
+    # funding route passes through — in the response BODY only,
+    # never in the discovery output schemas (header budget; see
+    # app/response_upgrades.py). The settlement tx is knowable only
+    # here, from the settlement receipt header when present.
+    _receipt = delivery_ledger_svc.extract_receipt(response)
+    response_upgrades_svc.attach_upgrades(
+        data,
+        request.url.path,
+        getattr(request.state, "paid_input", None) or {},
+        settlement_tx=(_receipt or {}).get("transaction"),
+    )
     return _rebuild_response(
         json.dumps(data).encode(), response, "application/json"
     )
@@ -435,6 +449,18 @@ async def _attach_loop_offer(
 
 @app.middleware("http")
 async def x402_middleware(request: Request, call_next):
+    # Capture the parsed request body of a priced call for the
+    # evidence block's input_hash (attached centrally in
+    # _attach_loop_offer). Starlette caches the body, so downstream
+    # handlers still read it normally.
+    if request.method == "POST" and request.url.path in PRICE_UNITS:
+        try:
+            _paid_body = await request.body()
+            request.state.paid_input = (
+                json.loads(_paid_body) if _paid_body else {}
+            )
+        except Exception:  # noqa: BLE001 — evidence is additive only
+            request.state.paid_input = {}
     # A call presenting a Fleet Pass id is paid from the pass ledger
     # in StallRow: debit before the handler, refund on failure.
     from . import fleet_pass as _fleet_pass
