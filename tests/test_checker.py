@@ -209,3 +209,44 @@ def test_bad_url_raises_value_error(tmp_path):
         assert "http(s)" in str(e)
     else:  # pragma: no cover
         raise AssertionError("expected ValueError")
+
+
+def test_post_transport_failure_after_405_get_is_unreachable_not_invalid(tmp_path):
+    """Regression (2026-11-25): token-verdict answers GET with 405 and
+    serves its challenge on POST. A dropped POST probe was masked by the
+    GET response and graded as 'no valid x402 challenge' (AVOID/40)
+    while the route was healthy. A POST transport failure must surface
+    as a probe failure ('endpoint unreachable'), never as a grading of
+    the GET response."""
+    store = CheckStore(str(tmp_path / "checks.db"))
+
+    def target(request):
+        if request.method == "GET":
+            return httpx.Response(405, json={"detail": "Method Not Allowed"})
+        raise httpx.ConnectError("connection dropped", request=request)
+
+    client = make_client(target)
+    result = run(TARGET_URL, store, client)
+    assert result["liveness"]["alive"] is False
+    assert result["liveness"]["x402_valid"] is False
+    names = [r["name"] for r in result["reasons"]]
+    assert names[0] == "endpoint unreachable"
+    assert "no valid x402 challenge" not in names
+    assert "POST probe failed" in result["reasons"][0]["detail"]
+
+
+def test_post_challenge_used_when_get_is_405(tmp_path):
+    """POST-only routes (GET -> 405) are graded on their POST challenge."""
+    store = CheckStore(str(tmp_path / "checks.db"))
+
+    def target(request):
+        if request.method == "GET":
+            return httpx.Response(405, json={"detail": "Method Not Allowed"})
+        return httpx.Response(402, json=challenge())
+
+    client = make_client(target, cdp_resources=[{"resource": TARGET_URL}], payai_status=200)
+    result = run(TARGET_URL, store, client)
+    assert result["liveness"]["alive"] is True
+    assert result["liveness"]["x402_valid"] is True
+    assert result["liveness"]["method"] == "POST"
+    assert result["verdict"] == "TRUSTED"

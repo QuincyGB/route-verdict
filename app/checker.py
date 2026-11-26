@@ -472,17 +472,30 @@ async def _probe(client: httpx.AsyncClient, url: str, timeout: float) -> dict:
         latency_ms = int((time.monotonic() - start) * 1000)
         chosen = (status, resp_headers, body)
         if status != 402:
-            start = time.monotonic()
-            status2, headers2, body2 = await _fetch_once(
-                client,
-                "POST",
-                url,
-                {**headers, "content-type": "application/json"},
-                timeout,
-                content=b"{}",
-            )
-            latency2 = int((time.monotonic() - start) * 1000)
-            if status2 == 402:
+            # The GET did not carry the challenge, so the POST is the
+            # authoritative attempt for this route. Its outcome decides
+            # the probe: any POST response replaces the GET response
+            # (not only a 402), and a POST transport failure is a probe
+            # failure — never grade the GET response (e.g. a 405) as if
+            # it were the route's challenge. (2026-11-25: a dropped POST
+            # to token-verdict was masked this way and reported as an
+            # invalid x402 challenge, AVOID/40, while the route was
+            # healthy.)
+            try:
+                start = time.monotonic()
+                status2, headers2, body2 = await _fetch_once(
+                    client,
+                    "POST",
+                    url,
+                    {**headers, "content-type": "application/json"},
+                    timeout,
+                    content=b"{}",
+                )
+                latency2 = int((time.monotonic() - start) * 1000)
+            except (_ProbeRefused, ValueError, httpx.HTTPError) as e:
+                error = f"POST probe failed: {e}"
+                chosen = None
+            else:
                 chosen = (status2, headers2, body2)
                 method = "POST"
                 latency_ms = latency2
